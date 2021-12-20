@@ -46,6 +46,6 @@ setInterval(() => {
   }
 }, 1000);
 
-server.listen(3001, () => {
+server.listen(3000, () => {
   console.log("app started");
 });

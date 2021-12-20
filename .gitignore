@@ -1,3 +1,4 @@
 node_modules/
 *.env
 public/avatar.png
+public/avatar.jpg
