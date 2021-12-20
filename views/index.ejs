@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>wahoo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        font-family: sans-serif;
+      }
+
+      #canvas {
+        z-index: 10;
+
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div style="text-align: center">
+      <h1 id="drawHere" style="border-bottom: 5px solid">draw here</h1>
+      <div
+        style="
+          width: 300px;
+          height: 300px;
+          margin: 10px auto 0 auto;
+          position: relative;
+          z-index: 0;
+          border: 1px solid black;
+        "
+      >
+        <img
+          src="/avatar.png"
+          style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+          "
+        />
+        <canvas id="canvas" width="300" height="300"></canvas>
+      </div>
+
+      <h2 id="secondsLeft">reset in ? seconds</h2>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+
+      // Generate a random color
+      const colors = [
+        "rgb(100, 100, 100)",
+        "rgb(0, 0, 0)",
+        "rgb(255, 0, 0)",
+        "rgb(0, 255, 0)",
+        "rgb(0, 100, 255)",
+        "rgb(255, 0, 255)",
+        "rgb(255, 100, 0)",
+        "rgb(0, 255, 255)",
+      ];
+
+      const color = colors[Math.floor(Math.random() * colors.length)];
+
+      document.getElementById("drawHere").style.borderColor = color;
+
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+
+      let isMouseDown = false;
+
+      let prevX, prevY;
+
+      function relativePointToAbsolute(point) {
+        return [point[0] * canvas.width, point[1] * canvas.height];
+      }
+
+      function absolutePointToRelative(point) {
+        return [point[0] / canvas.width, point[1] / canvas.height];
+      }
+
+      socket.on("secondsLeft", (seconds) => {
+        document.getElementById(
+          "secondsLeft"
+        ).innerText = `reset in ${seconds} seconds`;
+      });
+
+      socket.on("draw", ({ color, point: [[prevX, prevY], [x, y]] }) => {
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(...relativePointToAbsolute([prevX, prevY]));
+        ctx.lineTo(...relativePointToAbsolute([x, y]));
+        ctx.stroke();
+      });
+
+      socket.on("init", (lines) => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        lines.forEach(({ color, point: [[prevX, prevY], [x, y]] }) => {
+          ctx.strokeStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(...relativePointToAbsolute([prevX, prevY]));
+          ctx.lineTo(...relativePointToAbsolute([x, y]));
+          ctx.stroke();
+        });
+      });
+
+      function mouseUp(e) {
+        isMouseDown = false;
+        prevX = undefined;
+        prevY = undefined;
+      }
+
+      function mouseDown(e) {
+        isMouseDown = true;
+      }
+
+      function mouseMove(e) {
+        if (isMouseDown) {
+          const rect = canvas.getBoundingClientRect();
+
+          console.log(e.clientX, e.clientY);
+
+          let x = e.clientX - rect.left;
+          let y = e.clientY - rect.top;
+
+          if (x >= 0 && x <= 500 && y >= 0 && y <= 500) {
+            if (prevX && prevY) {
+              socket.emit("draw", {
+                color,
+                point: [
+                  absolutePointToRelative([prevX, prevY]),
+                  absolutePointToRelative([x, y]),
+                ],
+              });
+
+              ctx.strokeStyle = color;
+              ctx.beginPath();
+              ctx.moveTo(prevX, prevY);
+              ctx.lineTo(x, y);
+              ctx.stroke();
+            }
+
+            prevX = x;
+            prevY = y;
+          }
+        }
+      }
+
+      function touchMove(e) {
+        if (isMouseDown) {
+          const rect = canvas.getBoundingClientRect();
+
+          let x = e.changedTouches[0].clientX - rect.left;
+          let y = e.changedTouches[0].clientY - rect.top;
+
+          if (x >= 0 && x <= 500 && y >= 0 && y <= 500) {
+            if (prevX && prevY) {
+              socket.emit("draw", {
+                color,
+                point: [
+                  absolutePointToRelative([prevX, prevY]),
+                  absolutePointToRelative([x, y]),
+                ],
+              });
+
+              ctx.strokeStyle = color;
+              ctx.beginPath();
+              ctx.moveTo(prevX, prevY);
+              ctx.lineTo(x, y);
+              ctx.stroke();
+            }
+
+            prevX = x;
+            prevY = y;
+          }
+        }
+      }
+
+      document
+        .getElementById("canvas")
+        .addEventListener("mousedown", mouseDown);
+      document
+        .getElementById("canvas")
+        .addEventListener("touchstart", mouseDown);
+
+      document.addEventListener("mouseup", mouseUp);
+      document.addEventListener("touchend", mouseUp);
+
+      document.addEventListener("mousemove", mouseMove);
+      document.addEventListener("touchmove", touchMove);
+    </script>
+  </body>
+</html>

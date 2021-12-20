@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      html,
+      body {
+        margin: 0;
+      }
+
+      body {
+        background-color: rgb(36, 36, 36);
+      }
+
+      #img {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        height: 100%;
+        width: 100%;
+      }
+
+      #qr {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 400px;
+        filter: invert(1);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      style="
+        display: block;
+        margin: 0 auto;
+        height: 100vh;
+        width: 100vh;
+        position: relative;
+      "
+    >
+      <img src="/avatar.png" id="img" />
+      <canvas
+        height="1080"
+        width="1080"
+        id="canvas"
+        style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          right: 0;
+          height: 100%;
+          width: 100%;
+        "
+      ></canvas>
+    </div>
+    <div id="qr"></div>
+
+    <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@master/qrcode.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      new QRCode(document.getElementById("qr"), {
+        text: "<%= qr %>",
+        width: 400,
+        height: 400,
+      });
+      var socket = io();
+
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      ctx.lineWidth = 7;
+      ctx.lineCap = "round";
+
+      function relativePointToAbsolute(point) {
+        return [point[0] * canvas.width, point[1] * canvas.height];
+      }
+
+      function absolutePointToRelative(point) {
+        return [point[0] / canvas.width, point[1] / canvas.height];
+      }
+
+      socket.on("init", (lines) => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        lines.forEach(({ color, point: [[prevX, prevY], [x, y]] }) => {
+          ctx.strokeStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(...relativePointToAbsolute([prevX, prevY]));
+          ctx.lineTo(...relativePointToAbsolute([x, y]));
+          ctx.stroke();
+        });
+      });
+
+      socket.on("draw", ({ color, point: [[prevX, prevY], [x, y]] }) => {
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(...relativePointToAbsolute([prevX, prevY]));
+        ctx.lineTo(...relativePointToAbsolute([x, y]));
+        ctx.stroke();
+      });
+    </script>
+  </body>
+</html>
